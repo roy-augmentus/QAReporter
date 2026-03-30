@@ -1,6 +1,6 @@
 {
     "name": "com.augmentus.qa-reporter",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "displayName": "QA Reporter Tool",
     "description": "In-game bug reporter that captures runtime data (console logs with enhanced stack traces, scene transitions, UI interactions, screenshots) and creates Jira tickets directly from within the app.",
     "unity": "6000.0",
