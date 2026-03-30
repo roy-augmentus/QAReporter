@@ -26,7 +26,7 @@ In-game bug reporter for Unity that captures runtime data and creates Jira ticke
 
 1. Open **Window > Package Manager**
 2. Click **+** > **Add package from git URL**
-3. Enter: `https://github.com/roykoo89/QAReporter.git`
+3. Enter: `https://github.com/roy-augmentus/QAReporter.git`
 
 ### Via local path
 
