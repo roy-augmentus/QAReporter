@@ -269,6 +269,50 @@ namespace QAReporter.Jira
             return $"HTTP {request.responseCode}: {ParseErrorMessage(request.downloadHandler?.text)}";
         }
 
+        /// <summary>
+        /// Adds a plain-text comment to an existing Jira issue.
+        /// </summary>
+        public async UniTask<string> AddCommentAsync(
+            string issueKey, string commentBody, CancellationToken ct = default)
+        {
+            var url = $"{_settings.BaseUrl}/rest/api/2/issue/{issueKey}/comment";
+
+            var body = new JObject
+            {
+                ["body"] = commentBody
+            };
+
+            var jsonBytes = Encoding.UTF8.GetBytes(body.ToString(Formatting.None));
+
+            using var request = new UnityWebRequest(url, UnityWebRequest.kHttpVerbPOST)
+            {
+                uploadHandler = new UploadHandlerRaw(jsonBytes) { contentType = "application/json" },
+                downloadHandler = new DownloadHandlerBuffer()
+            };
+            request.SetRequestHeader("Authorization", _authHeader);
+            request.SetRequestHeader("Accept", "application/json");
+
+            try
+            {
+                await request.SendWebRequest().WithCancellation(ct);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception e)
+            {
+                return $"Network error: {e.Message}";
+            }
+
+            if (request.responseCode == 201)
+            {
+                return null;
+            }
+
+            return $"HTTP {request.responseCode}: {ParseErrorMessage(request.downloadHandler?.text)}";
+        }
+
         private static string ParseErrorMessage(string responseJson)
         {
             if (string.IsNullOrEmpty(responseJson))

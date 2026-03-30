@@ -45,6 +45,8 @@ namespace QAReporter.UI
         private Label _previewLabel;
         private ScrollView _previewScroll;
         private Button _sendButton;
+        private Button _addToTicketButton;
+        private TextField _existingTicketKeyField;
 
         // Complete panel elements.
         private Label _completeMessageLabel;
@@ -374,6 +376,21 @@ namespace QAReporter.UI
 
             panel.Add(buttonRow);
 
+            // Add to existing ticket section.
+            panel.Add(BugReporterStyles.CreateSeparator());
+
+            _existingTicketKeyField = BugReporterStyles.CreateTextField("Ticket Key");
+            _existingTicketKeyField.style.fontSize = BugReporterStyles.FontSizeReviewField;
+            _existingTicketKeyField.labelElement.style.fontSize = BugReporterStyles.FontSizeReviewLabel;
+            _existingTicketKeyField.RegisterValueChangedCallback(_ =>
+                _addToTicketButton.SetEnabled(!string.IsNullOrWhiteSpace(_existingTicketKeyField.value)));
+            panel.Add(_existingTicketKeyField);
+
+            _addToTicketButton = BugReporterStyles.CreateButton("Add to Existing Ticket", BugReporterStyles.ButtonPrimary);
+            _addToTicketButton.SetEnabled(false);
+            _addToTicketButton.clicked += () => SubmitAsCommentAsync().Forget();
+            panel.Add(_addToTicketButton);
+
             return panel;
         }
 
@@ -635,6 +652,31 @@ namespace QAReporter.UI
             {
                 _ticketUrl = ticketUrl;
                 _completeMessageLabel.text = $"{ticketKey} created!";
+                _completeMessageLabel.style.color = BugReporterStyles.SuccessGreen;
+            }
+            else
+            {
+                _ticketUrl = null;
+                _completeMessageLabel.text = $"Error: {error}";
+                _completeMessageLabel.style.color = BugReporterStyles.RecordingRed;
+            }
+        }
+
+        private async UniTaskVoid SubmitAsCommentAsync()
+        {
+            var manager = BugReporterManager.Instance;
+            if (manager == null)
+            {
+                return;
+            }
+
+            var issueKey = _existingTicketKeyField.value.Trim();
+            var (success, ticketUrl, error) = await manager.SubmitAsCommentAsync(issueKey);
+
+            if (success)
+            {
+                _ticketUrl = ticketUrl;
+                _completeMessageLabel.text = $"Comment added to {issueKey}!";
                 _completeMessageLabel.style.color = BugReporterStyles.SuccessGreen;
             }
             else

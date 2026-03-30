@@ -343,6 +343,94 @@ namespace QAReporter
         }
 
         /// <summary>
+        /// Submits the bug report as a comment on an existing Jira ticket.
+        /// </summary>
+        /// <param name="issueKey">The existing Jira issue key (e.g. "PROJ-123").</param>
+        /// <returns>Tuple of (success, ticketUrl, error).</returns>
+        public async UniTask<(bool success, string ticketUrl, string error)>
+            SubmitAsCommentAsync(string issueKey)
+        {
+            if (_state.Value != BugReporterState.Review)
+            {
+                return (false, null, "Not in Review state.");
+            }
+
+            if (string.IsNullOrWhiteSpace(issueKey))
+            {
+                return (false, null, "Issue key is required.");
+            }
+
+            var settings = JiraSettings.Load();
+            if (!settings.IsConfigured)
+            {
+                return (false, null, "Jira credentials not configured. Open Settings first.");
+            }
+
+            _state.Value = BugReporterState.Sending;
+            _sendCts?.Cancel();
+            _sendCts = new CancellationTokenSource();
+            var ct = _sendCts.Token;
+
+            try
+            {
+                var client = new JiraApiClient(settings);
+
+                // Add the report as a comment.
+                var commentText = _currentReport.GenerateMarkdownDescription();
+                var commentError = await client.AddCommentAsync(issueKey, commentText, ct);
+                if (commentError != null)
+                {
+                    _state.Value = BugReporterState.Error;
+                    return (false, null, $"Failed to add comment: {commentError}");
+                }
+
+                Debug.Log($"[BugReporter] Comment added to {issueKey}");
+
+                // Attach console log as text file.
+                var consoleLogText = _currentReport.GenerateConsoleLogText();
+                var consoleLogBytes = System.Text.Encoding.UTF8.GetBytes(consoleLogText);
+                var logFileName = $"console_log_{_currentReport.StartTime:yyyy-MM-dd_HH-mm-ss}.txt";
+                var logAttachError = await client.AttachFileAsync(
+                    issueKey, consoleLogBytes, logFileName, "text/plain", ct);
+
+                if (logAttachError != null)
+                {
+                    Debug.LogWarning($"[BugReporter] Failed to attach console log: {logAttachError}");
+                }
+
+                // Attach screenshots.
+                for (int i = 0; i < _currentReport.Screenshots.Count; i++)
+                {
+                    var screenshot = _currentReport.Screenshots[i];
+                    var attachError = await client.AttachScreenshotAsync(
+                        issueKey, screenshot, ct);
+
+                    if (attachError != null)
+                    {
+                        Debug.LogWarning(
+                            $"[BugReporter] Failed to attach screenshot {i + 1}: {attachError}");
+                    }
+                }
+
+                var ticketUrl = $"{settings.BaseUrl}/browse/{issueKey}";
+                _state.Value = BugReporterState.Complete;
+                Debug.Log($"[BugReporter] Comment submitted to: {ticketUrl}");
+                return (true, ticketUrl, null);
+            }
+            catch (OperationCanceledException)
+            {
+                _state.Value = BugReporterState.Review;
+                return (false, null, "Submission cancelled.");
+            }
+            catch (Exception e)
+            {
+                _state.Value = BugReporterState.Error;
+                Debug.LogError($"[BugReporter] Comment submission error: {e}");
+                return (false, null, e.Message);
+            }
+        }
+
+        /// <summary>
         /// Cancels the current session and returns to Idle.
         /// </summary>
         public void Cancel()
