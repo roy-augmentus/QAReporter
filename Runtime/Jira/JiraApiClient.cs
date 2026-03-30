@@ -1,3 +1,4 @@
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
 using System;
 using System.Text;
 using System.Threading;
@@ -301,3 +302,4 @@ namespace QAReporter.Jira
         }
     }
 }
+#endif

@@ -1,3 +1,4 @@
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -139,3 +140,4 @@ namespace QAReporter.UI
         }
     }
 }
+#endif

@@ -1,3 +1,4 @@
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
 using System;
 using UnityEngine;
 
@@ -48,3 +49,4 @@ namespace QAReporter.Core
             !string.IsNullOrEmpty(EnhancedStackTrace) ? EnhancedStackTrace : StackTrace;
     }
 }
+#endif

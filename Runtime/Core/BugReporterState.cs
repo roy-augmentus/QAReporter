@@ -1,3 +1,4 @@
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
 namespace QAReporter.Core
 {
     /// <summary>
@@ -13,3 +14,4 @@ namespace QAReporter.Core
         Error
     }
 }
+#endif

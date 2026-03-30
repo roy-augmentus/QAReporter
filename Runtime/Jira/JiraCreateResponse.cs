@@ -1,3 +1,4 @@
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
 using Newtonsoft.Json;
 
 namespace QAReporter.Jira
@@ -25,3 +26,4 @@ namespace QAReporter.Jira
         }
     }
 }
+#endif

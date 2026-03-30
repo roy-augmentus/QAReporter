@@ -1,3 +1,4 @@
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
 using System;
 
 namespace QAReporter.Core
@@ -24,3 +25,4 @@ namespace QAReporter.Core
         public string HierarchyPath { get; set; }
     }
 }
+#endif

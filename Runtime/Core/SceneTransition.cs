@@ -1,3 +1,4 @@
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
 using System;
 
 namespace QAReporter.Core
@@ -23,3 +24,4 @@ namespace QAReporter.Core
         public DateTime Timestamp { get; set; }
     }
 }
+#endif

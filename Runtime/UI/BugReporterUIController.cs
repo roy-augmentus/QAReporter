@@ -1,3 +1,4 @@
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
 using System;
 using QAReporter.Core;
 using QAReporter.Jira;
@@ -693,3 +694,4 @@ namespace QAReporter.UI
         }
     }
 }
+#endif

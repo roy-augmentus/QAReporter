@@ -1,3 +1,4 @@
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
 using UnityEngine;
 
 namespace QAReporter.Jira
@@ -64,3 +65,4 @@ namespace QAReporter.Jira
         }
     }
 }
+#endif

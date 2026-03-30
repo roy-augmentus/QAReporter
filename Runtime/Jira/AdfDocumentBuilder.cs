@@ -1,3 +1,4 @@
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
 using System.Collections.Generic;
 using System.Linq;
 using QAReporter.Core;
@@ -247,3 +248,4 @@ namespace QAReporter.Jira
         }
     }
 }
+#endif

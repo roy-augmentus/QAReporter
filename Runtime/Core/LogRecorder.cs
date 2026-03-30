@@ -1,3 +1,4 @@
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -139,3 +140,4 @@ namespace QAReporter.Core
         }
     }
 }
+#endif
