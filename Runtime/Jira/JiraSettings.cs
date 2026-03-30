@@ -17,7 +17,7 @@ namespace QAReporter.Jira
 
         private const string DefaultCloudInstance = "";
         private const string DefaultProjectKey = "";
-        private const string DefaultIssueType = "Bug";
+        private const string DefaultIssueType = "Bug (Dev)";
 
         public string Email { get; set; } = "";
         public string ApiToken { get; set; } = "";

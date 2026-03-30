@@ -100,8 +100,10 @@ namespace QAReporter
                 {
                     var hit = _raycastResults[0].gameObject;
 
-                    // Skip bug reporter's own UI.
-                    if (hit.transform.IsChildOf(transform))
+                    // Skip bug reporter's own UI (both the GameObject hierarchy
+                    // and the UI Toolkit PanelSettings raycast target).
+                    if (hit.transform.IsChildOf(transform) ||
+                        hit.name.Contains("QAReporter"))
                     {
                         return;
                     }
@@ -375,8 +377,13 @@ namespace QAReporter
             {
                 var client = new JiraApiClient(settings);
 
-                // Add the report as a comment.
+                // Add the report as a comment (cap at 32000 chars to stay within Jira limits).
                 var commentText = _currentReport.GenerateMarkdownDescription();
+                if (commentText.Length > 32000)
+                {
+                    commentText = commentText.Substring(0, 32000) + "\n\n(truncated — see attached console log for full output)";
+                }
+                Debug.Log($"[BugReporter] Posting comment to {issueKey} ({commentText.Length} chars)");
                 var commentError = await client.AddCommentAsync(issueKey, commentText, ct);
                 if (commentError != null)
                 {
@@ -395,7 +402,7 @@ namespace QAReporter
 
                 if (logAttachError != null)
                 {
-                    Debug.LogWarning($"[BugReporter] Failed to attach console log: {logAttachError}");
+                    Debug.LogError($"[BugReporter] Failed to attach console log to {issueKey}: {logAttachError}");
                 }
 
                 // Attach screenshots.
@@ -407,8 +414,8 @@ namespace QAReporter
 
                     if (attachError != null)
                     {
-                        Debug.LogWarning(
-                            $"[BugReporter] Failed to attach screenshot {i + 1}: {attachError}");
+                        Debug.LogError(
+                            $"[BugReporter] Failed to attach screenshot {i + 1} to {issueKey}: {attachError}");
                     }
                 }
 

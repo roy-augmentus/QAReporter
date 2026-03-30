@@ -205,6 +205,8 @@ namespace QAReporter.Jira
             var formData = new WWWForm();
             formData.AddBinaryData("file", screenshot.PngData, screenshot.FileName, "image/png");
 
+            Debug.Log($"[BugReporter] Attaching screenshot {screenshot.FileName} ({screenshot.PngData.Length} bytes) to {issueKey}");
+
             using var request = UnityWebRequest.Post(url, formData);
             request.SetRequestHeader("Authorization", _authHeader);
             request.SetRequestHeader("X-Atlassian-Token", "no-check");
@@ -220,15 +222,19 @@ namespace QAReporter.Jira
             }
             catch (Exception e)
             {
+                Debug.LogError($"[BugReporter] Attach screenshot {screenshot.FileName} network error: {e.Message}");
                 return $"Network error: {e.Message}";
             }
 
-            if (request.responseCode == 200)
+            if (request.responseCode == 200 || request.responseCode == 201)
             {
+                Debug.Log($"[BugReporter] Attached screenshot {screenshot.FileName} successfully");
                 return null;
             }
 
-            return $"HTTP {request.responseCode}: {ParseErrorMessage(request.downloadHandler?.text)}";
+            var errorText = request.downloadHandler?.text;
+            Debug.LogError($"[BugReporter] Attach screenshot failed: HTTP {request.responseCode} - {errorText}");
+            return $"HTTP {request.responseCode}: {ParseErrorMessage(errorText)}";
         }
 
         /// <summary>
@@ -243,6 +249,8 @@ namespace QAReporter.Jira
             var formData = new WWWForm();
             formData.AddBinaryData("file", data, fileName, mimeType);
 
+            Debug.Log($"[BugReporter] Attaching {fileName} ({data.Length} bytes) to {issueKey}");
+
             using var request = UnityWebRequest.Post(url, formData);
             request.SetRequestHeader("Authorization", _authHeader);
             request.SetRequestHeader("X-Atlassian-Token", "no-check");
@@ -258,15 +266,19 @@ namespace QAReporter.Jira
             }
             catch (Exception e)
             {
+                Debug.LogError($"[BugReporter] Attach {fileName} network error: {e.Message}");
                 return $"Network error: {e.Message}";
             }
 
-            if (request.responseCode == 200)
+            if (request.responseCode == 200 || request.responseCode == 201)
             {
+                Debug.Log($"[BugReporter] Attached {fileName} successfully");
                 return null;
             }
 
-            return $"HTTP {request.responseCode}: {ParseErrorMessage(request.downloadHandler?.text)}";
+            var errorText = request.downloadHandler?.text;
+            Debug.LogError($"[BugReporter] Attach {fileName} failed: HTTP {request.responseCode} - {errorText}");
+            return $"HTTP {request.responseCode}: {ParseErrorMessage(errorText)}";
         }
 
         /// <summary>
@@ -305,12 +317,14 @@ namespace QAReporter.Jira
                 return $"Network error: {e.Message}";
             }
 
-            if (request.responseCode == 201)
+            if (request.responseCode == 200 || request.responseCode == 201)
             {
                 return null;
             }
 
-            return $"HTTP {request.responseCode}: {ParseErrorMessage(request.downloadHandler?.text)}";
+            var errorText = request.downloadHandler?.text;
+            Debug.LogError($"[BugReporter] AddComment failed: HTTP {request.responseCode} - {errorText}");
+            return $"HTTP {request.responseCode}: {ParseErrorMessage(errorText)}";
         }
 
         private static string ParseErrorMessage(string responseJson)

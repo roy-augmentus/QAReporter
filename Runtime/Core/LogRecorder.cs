@@ -20,6 +20,7 @@ namespace QAReporter.Core
         private string _startSceneName;
         private DateTime _startTime;
         private bool _disposed;
+        private int _insideCallback;
 
         /// <summary>
         /// Whether the recorder is currently capturing logs.
@@ -82,33 +83,47 @@ namespace QAReporter.Core
                 return;
             }
 
-            var entry = new LogEntry
+            // Guard against re-entrancy: if an exception occurs inside this callback,
+            // Unity logs it which triggers OnLogReceived again recursively.
+            if (System.Threading.Interlocked.CompareExchange(ref _insideCallback, 1, 0) != 0)
             {
-                Message = condition,
-                StackTrace = stackTrace,
-                Type = type,
-                Timestamp = DateTime.Now
-            };
-
-            // For error-level logs, capture an enhanced stack trace with file paths
-            // and line numbers via System.Diagnostics. This gives Claude exact code
-            // locations that Unity's default runtime stack trace omits.
-            if (type == LogType.Error || type == LogType.Exception || type == LogType.Assert)
-            {
-                try
-                {
-                    var diagnosticTrace = new System.Diagnostics.StackTrace(true);
-                    entry.EnhancedStackTrace = diagnosticTrace.ToString();
-                }
-                catch (Exception)
-                {
-                    // System.Diagnostics.StackTrace may fail in some environments
-                    // (e.g., IL2CPP with aggressive stripping). The standard
-                    // Unity stack trace is still available as a fallback.
-                }
+                return;
             }
 
-            _logQueue.Enqueue(entry);
+            try
+            {
+                var entry = new LogEntry
+                {
+                    Message = condition,
+                    StackTrace = stackTrace,
+                    Type = type,
+                    Timestamp = DateTime.Now
+                };
+
+                // For error-level logs, capture an enhanced stack trace with file paths
+                // and line numbers via System.Diagnostics. This gives Claude exact code
+                // locations that Unity's default runtime stack trace omits.
+                if (type == LogType.Error || type == LogType.Exception || type == LogType.Assert)
+                {
+                    try
+                    {
+                        var diagnosticTrace = new System.Diagnostics.StackTrace(true);
+                        entry.EnhancedStackTrace = diagnosticTrace.ToString();
+                    }
+                    catch (Exception)
+                    {
+                        // System.Diagnostics.StackTrace may fail in some environments
+                        // (e.g., IL2CPP with aggressive stripping). The standard
+                        // Unity stack trace is still available as a fallback.
+                    }
+                }
+
+                _logQueue.Enqueue(entry);
+            }
+            finally
+            {
+                System.Threading.Interlocked.Exchange(ref _insideCallback, 0);
+            }
         }
 
         private void OnActiveSceneChanged(Scene previousScene, Scene newScene)
