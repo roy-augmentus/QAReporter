@@ -1,5 +1,5 @@
 {
-    "name": "com.roykoo.qa-reporter",
+    "name": "com.augmentus.qa-reporter",
     "version": "0.1.0",
     "displayName": "QA Reporter Tool",
     "description": "In-game bug reporter that captures runtime data (console logs with enhanced stack traces, scene transitions, UI interactions, screenshots) and creates Jira tickets directly from within the app.",
@@ -17,7 +17,7 @@
         "debug"
     ],
     "author": {
-        "name": "Roy Koo",
-        "url": "https://github.com/roykoo89"
+        "name": "Roy-Augmentus",
+        "url": "https://github.com/roy-augmentus"
     }
 }
