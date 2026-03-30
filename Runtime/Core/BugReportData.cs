@@ -83,7 +83,7 @@ namespace QAReporter.Core
         public TimeSpan Duration => EndTime - StartTime;
 
         /// <summary>
-        /// Generates a markdown description optimized for Jira and Claude's /do-ticket command.
+        /// Generates a Jira wiki markup description for the bug report.
         /// </summary>
         public string GenerateMarkdownDescription()
         {
@@ -101,27 +101,27 @@ namespace QAReporter.Core
 
         private void AppendStepsToReproduce(StringBuilder sb)
         {
-            sb.AppendLine("## Steps to Reproduce");
-            sb.AppendLine($"**Scene:** {StartSceneName}");
-            sb.AppendLine($"**Recording:** {StartTime:yyyy-MM-dd HH:mm:ss} → {EndTime:HH:mm:ss} ({Duration.TotalSeconds:F0}s)");
+            sb.AppendLine("h2. Steps to Reproduce");
+            sb.AppendLine($"*Scene:* {StartSceneName}");
+            sb.AppendLine($"*Recording:* {StartTime:yyyy-MM-dd HH:mm:ss} → {EndTime:HH:mm:ss} ({Duration.TotalSeconds:F0}s)");
             sb.AppendLine();
 
             if (SceneTransitions.Count > 0)
             {
-                sb.AppendLine("**Scene transitions during recording:**");
+                sb.AppendLine("*Scene transitions during recording:*");
                 foreach (var transition in SceneTransitions)
                 {
-                    sb.AppendLine($"- [{transition.Timestamp:HH:mm:ss}] {transition.FromScene} → {transition.ToScene}");
+                    sb.AppendLine($"* [{transition.Timestamp:HH:mm:ss}] {transition.FromScene} → {transition.ToScene}");
                 }
                 sb.AppendLine();
             }
 
             if (UIInteractions.Count > 0)
             {
-                sb.AppendLine("**UI interactions during recording:**");
+                sb.AppendLine("*UI interactions during recording:*");
                 foreach (var interaction in UIInteractions)
                 {
-                    sb.AppendLine($"- [{interaction.Timestamp:HH:mm:ss}] {interaction.Description} ({interaction.HierarchyPath})");
+                    sb.AppendLine($"* [{interaction.Timestamp:HH:mm:ss}] {interaction.Description} ({interaction.HierarchyPath})");
                 }
                 sb.AppendLine();
             }
@@ -136,7 +136,7 @@ namespace QAReporter.Core
 
         private void AppendExpectedBehavior(StringBuilder sb)
         {
-            sb.AppendLine("## Expected Behavior");
+            sb.AppendLine("h2. Expected Behavior");
             sb.AppendLine(!string.IsNullOrWhiteSpace(ExpectedBehavior)
                 ? ExpectedBehavior.Trim()
                 : "(not provided)");
@@ -145,7 +145,7 @@ namespace QAReporter.Core
 
         private void AppendActualBehavior(StringBuilder sb)
         {
-            sb.AppendLine("## Actual Behavior");
+            sb.AppendLine("h2. Actual Behavior");
             sb.AppendLine(!string.IsNullOrWhiteSpace(ActualBehavior)
                 ? ActualBehavior.Trim()
                 : "(not provided)");
@@ -155,7 +155,7 @@ namespace QAReporter.Core
         private void AppendErrorLogs(StringBuilder sb)
         {
             var errors = Logs.Where(l => l.IsError).ToList();
-            sb.AppendLine("## Error Logs");
+            sb.AppendLine("h2. Error Logs");
 
             if (errors.Count == 0)
             {
@@ -164,7 +164,7 @@ namespace QAReporter.Core
                 return;
             }
 
-            sb.AppendLine("```");
+            sb.AppendLine("{code}");
             foreach (var error in errors)
             {
                 sb.AppendLine($"[{error.Timestamp:HH:mm:ss}] {error.Type.ToString().ToUpper()} {error.Message}");
@@ -172,7 +172,6 @@ namespace QAReporter.Core
                 var trace = error.BestStackTrace;
                 if (!string.IsNullOrWhiteSpace(trace))
                 {
-                    // Indent stack trace lines for readability.
                     foreach (var line in trace.Split('\n'))
                     {
                         var trimmed = line.TrimEnd('\r');
@@ -185,7 +184,7 @@ namespace QAReporter.Core
 
                 sb.AppendLine();
             }
-            sb.AppendLine("```");
+            sb.AppendLine("{code}");
             sb.AppendLine();
         }
 
@@ -243,7 +242,7 @@ namespace QAReporter.Core
         {
             if (!string.IsNullOrWhiteSpace(TestCaseId))
             {
-                sb.AppendLine("## Test Case");
+                sb.AppendLine("h2. Test Case");
                 sb.AppendLine(TestCaseId.Trim());
                 sb.AppendLine();
             }
@@ -251,7 +250,7 @@ namespace QAReporter.Core
 
         private void AppendSystemInfo(StringBuilder sb)
         {
-            sb.AppendLine("## System");
+            sb.AppendLine("h2. System");
             sb.AppendLine($"Unity {Application.unityVersion} | {SystemInfo.operatingSystem} | {SystemInfo.graphicsDeviceName}");
         }
     }
