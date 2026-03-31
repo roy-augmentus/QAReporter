@@ -377,8 +377,18 @@ namespace QAReporter
             {
                 var client = new JiraApiClient(settings);
 
+                // Build attachment list for the comment footer.
+                var logFileName = $"console_log_{_currentReport.StartTime:yyyy-MM-dd_HH-mm-ss}.txt";
+                var attachmentLines = new System.Text.StringBuilder();
+                attachmentLines.AppendLine("\nh2. Attachments");
+                attachmentLines.AppendLine($"* [^{logFileName}]");
+                for (int i = 0; i < _currentReport.Screenshots.Count; i++)
+                {
+                    attachmentLines.AppendLine($"* !{_currentReport.Screenshots[i].FileName}|thumbnail!");
+                }
+
                 // Add the report as a comment (cap at 32000 chars to stay within Jira limits).
-                var commentText = _currentReport.GenerateMarkdownDescription();
+                var commentText = _currentReport.GenerateMarkdownDescription() + attachmentLines;
                 if (commentText.Length > 32000)
                 {
                     commentText = commentText.Substring(0, 32000) + "\n\n(truncated — see attached console log for full output)";
@@ -396,7 +406,6 @@ namespace QAReporter
                 // Attach console log as text file.
                 var consoleLogText = _currentReport.GenerateConsoleLogText();
                 var consoleLogBytes = System.Text.Encoding.UTF8.GetBytes(consoleLogText);
-                var logFileName = $"console_log_{_currentReport.StartTime:yyyy-MM-dd_HH-mm-ss}.txt";
                 var logAttachError = await client.AttachFileAsync(
                     issueKey, consoleLogBytes, logFileName, "text/plain", ct);
 
