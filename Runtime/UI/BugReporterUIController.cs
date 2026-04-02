@@ -1,5 +1,6 @@
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
 using System;
+using QAReporter.AI;
 using QAReporter.Core;
 using QAReporter.Jira;
 using Cysharp.Threading.Tasks;
@@ -31,6 +32,9 @@ namespace QAReporter.UI
         private VisualElement _completePanel;
         private VisualElement _settingsPanel;
 
+        // Sending panel elements.
+        private Label _sendingLabel;
+
         // Recording panel elements.
         private Label _elapsedTimeLabel;
         private Label _screenshotCountLabel;
@@ -58,6 +62,7 @@ namespace QAReporter.UI
         private TextField _cloudInstanceField;
         private TextField _projectKeyField;
         private TextField _issueTypeField;
+        private TextField _anthropicApiKeyField;
         private Label _settingsStatusLabel;
 
         private void Start()
@@ -300,11 +305,26 @@ namespace QAReporter.UI
             var scroll = new ScrollView(ScrollViewMode.Vertical);
             scroll.style.flexGrow = 1;
 
+            var titleRow = new VisualElement();
+            titleRow.style.flexDirection = FlexDirection.Row;
+            titleRow.style.alignItems = Align.FlexEnd;
+
             _titleField = BugReporterStyles.CreateTextField("Title *");
             _titleField.style.fontSize = BugReporterStyles.FontSizeReviewField;
             _titleField.labelElement.style.fontSize = BugReporterStyles.FontSizeReviewLabel;
+            _titleField.style.flexGrow = 1;
             _titleField.RegisterValueChangedCallback(_ => OnReviewFieldChanged());
-            scroll.Add(_titleField);
+            titleRow.Add(_titleField);
+
+            var suggestBtn = BugReporterStyles.CreateButton("AI", BugReporterStyles.ButtonPrimary);
+            suggestBtn.style.height = 28;
+            suggestBtn.style.width = 40;
+            suggestBtn.style.marginLeft = BugReporterStyles.SmallPadding;
+            suggestBtn.style.marginBottom = BugReporterStyles.SmallPadding;
+            suggestBtn.clicked += () => SuggestTitleAsync(suggestBtn).Forget();
+            titleRow.Add(suggestBtn);
+
+            scroll.Add(titleRow);
 
             _stepsField = BugReporterStyles.CreateTextField("Steps to Reproduce", true, 200);
             _stepsField.style.fontSize = BugReporterStyles.FontSizeReviewField;
@@ -368,10 +388,14 @@ namespace QAReporter.UI
             cancelBtn.clicked += () => BugReporterManager.Instance?.Cancel();
             buttonRow.Add(cancelBtn);
 
-            _sendButton = BugReporterStyles.CreateButton("Send", BugReporterStyles.ButtonPrimary);
+            _sendButton = BugReporterStyles.CreateButton("Create Ticket", BugReporterStyles.ButtonPrimary);
             _sendButton.style.marginLeft = BugReporterStyles.SmallPadding;
             _sendButton.SetEnabled(false);
-            _sendButton.clicked += () => SubmitAsync().Forget();
+            _sendButton.clicked += () =>
+            {
+                _sendingLabel.text = "Creating Jira ticket...";
+                SubmitAsync().Forget();
+            };
             buttonRow.Add(_sendButton);
 
             panel.Add(buttonRow);
@@ -388,7 +412,11 @@ namespace QAReporter.UI
 
             _addToTicketButton = BugReporterStyles.CreateButton("Add to Existing Ticket", BugReporterStyles.ButtonPrimary);
             _addToTicketButton.SetEnabled(false);
-            _addToTicketButton.clicked += () => SubmitAsCommentAsync().Forget();
+            _addToTicketButton.clicked += () =>
+            {
+                _sendingLabel.text = "Adding comment...";
+                SubmitAsCommentAsync().Forget();
+            };
             panel.Add(_addToTicketButton);
 
             return panel;
@@ -453,7 +481,8 @@ namespace QAReporter.UI
             panel.style.justifyContent = Justify.Center;
             panel.style.minHeight = 80;
 
-            panel.Add(BugReporterStyles.CreateLabel("Creating Jira ticket..."));
+            _sendingLabel = BugReporterStyles.CreateLabel("Creating Jira ticket...");
+            panel.Add(_sendingLabel);
             return panel;
         }
 
@@ -516,6 +545,12 @@ namespace QAReporter.UI
             _issueTypeField = BugReporterStyles.CreateTextField("Issue Type");
             panel.Add(_issueTypeField);
 
+            panel.Add(BugReporterStyles.CreateSeparator());
+
+            _anthropicApiKeyField = BugReporterStyles.CreateTextField("Anthropic API Key");
+            _anthropicApiKeyField.isPasswordField = true;
+            panel.Add(_anthropicApiKeyField);
+
             _settingsStatusLabel = BugReporterStyles.CreateLabel("",
                 BugReporterStyles.FontSizeSmall, BugReporterStyles.TextSecondary);
             _settingsStatusLabel.style.marginTop = BugReporterStyles.SmallPadding;
@@ -552,6 +587,7 @@ namespace QAReporter.UI
             _cloudInstanceField.value = settings.CloudInstance;
             _projectKeyField.value = settings.ProjectKey;
             _issueTypeField.value = settings.IssueType;
+            _anthropicApiKeyField.value = settings.AnthropicApiKey;
             _settingsStatusLabel.text = "";
             _settingsPanel.style.display = DisplayStyle.Flex;
         }
@@ -570,7 +606,8 @@ namespace QAReporter.UI
                 ApiToken = _apiTokenField.value.Trim(),
                 CloudInstance = _cloudInstanceField.value.Trim(),
                 ProjectKey = _projectKeyField.value.Trim(),
-                IssueType = _issueTypeField.value.Trim()
+                IssueType = _issueTypeField.value.Trim(),
+                AnthropicApiKey = _anthropicApiKeyField.value.Trim()
             };
             settings.Save();
             _settingsStatusLabel.text = "Saved.";
@@ -588,7 +625,8 @@ namespace QAReporter.UI
                 ApiToken = _apiTokenField.value.Trim(),
                 CloudInstance = _cloudInstanceField.value.Trim(),
                 ProjectKey = _projectKeyField.value.Trim(),
-                IssueType = _issueTypeField.value.Trim()
+                IssueType = _issueTypeField.value.Trim(),
+                AnthropicApiKey = _anthropicApiKeyField.value.Trim()
             };
 
             var client = new JiraApiClient(settings);
@@ -659,6 +697,42 @@ namespace QAReporter.UI
                 _ticketUrl = null;
                 _completeMessageLabel.text = $"Error: {error}";
                 _completeMessageLabel.style.color = BugReporterStyles.RecordingRed;
+            }
+        }
+
+        private async UniTaskVoid SuggestTitleAsync(Button suggestBtn)
+        {
+            var settings = JiraSettings.Load();
+            if (string.IsNullOrWhiteSpace(settings.AnthropicApiKey))
+            {
+                _titleField.value = "(Set Anthropic API Key in Settings first)";
+                return;
+            }
+
+            var expected = _expectedField.value;
+            var actual = _actualField.value;
+            if (string.IsNullOrWhiteSpace(expected) && string.IsNullOrWhiteSpace(actual))
+            {
+                _titleField.value = "(Fill in Expected/Actual Behavior first)";
+                return;
+            }
+
+            suggestBtn.SetEnabled(false);
+            suggestBtn.text = "...";
+
+            var client = new ClaudeApiClient(settings.AnthropicApiKey);
+            var (title, error) = await client.SuggestTitleAsync(expected, actual);
+
+            suggestBtn.SetEnabled(true);
+            suggestBtn.text = "AI";
+
+            if (title != null)
+            {
+                _titleField.value = title;
+            }
+            else
+            {
+                Debug.LogError($"[BugReporter] Title suggestion failed: {error}");
             }
         }
 

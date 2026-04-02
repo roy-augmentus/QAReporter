@@ -14,6 +14,7 @@ namespace QAReporter.Jira
         private const string KeyProjectKey = "QAReporter_JiraProjectKey";
 
         private const string KeyIssueType = "QAReporter_JiraIssueType";
+        private const string KeyAnthropicApiKey = "QAReporter_AnthropicApiKey";
 
         private const string DefaultCloudInstance = "";
         private const string DefaultProjectKey = "";
@@ -24,6 +25,7 @@ namespace QAReporter.Jira
         public string CloudInstance { get; set; } = DefaultCloudInstance;
         public string ProjectKey { get; set; } = DefaultProjectKey;
         public string IssueType { get; set; } = DefaultIssueType;
+        public string AnthropicApiKey { get; set; } = "";
 
         /// <summary>
         /// Whether the required credentials (email and API token) are configured.
@@ -47,7 +49,8 @@ namespace QAReporter.Jira
                 ApiToken = PlayerPrefs.GetString(KeyApiToken, ""),
                 CloudInstance = PlayerPrefs.GetString(KeyCloudInstance, DefaultCloudInstance),
                 ProjectKey = PlayerPrefs.GetString(KeyProjectKey, DefaultProjectKey),
-                IssueType = PlayerPrefs.GetString(KeyIssueType, DefaultIssueType)
+                IssueType = PlayerPrefs.GetString(KeyIssueType, DefaultIssueType),
+                AnthropicApiKey = PlayerPrefs.GetString(KeyAnthropicApiKey, "")
             };
         }
 
@@ -61,6 +64,7 @@ namespace QAReporter.Jira
             PlayerPrefs.SetString(KeyCloudInstance, CloudInstance);
             PlayerPrefs.SetString(KeyProjectKey, ProjectKey);
             PlayerPrefs.SetString(KeyIssueType, IssueType);
+            PlayerPrefs.SetString(KeyAnthropicApiKey, AnthropicApiKey);
             PlayerPrefs.Save();
         }
     }
