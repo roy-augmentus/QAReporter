@@ -12,7 +12,7 @@ An in-game bug reporter that captures runtime data (console logs with full stack
 
 ## Motivation
 
-- Current bug reports (e.g. ADT-8439) are manually written and lack error logs/stack traces
+- Current bug reports are manually written and lack error logs/stack traces
 - SRDebugger's built-in bug reporter sends to Stompy Robot's cloud, not Jira
 - Claude needs stack traces + scene context to efficiently locate and fix bugs
 - QA testers need a streamlined flow: record bug, fill details, submit ticket
@@ -40,7 +40,7 @@ An in-game bug reporter that captures runtime data (console logs with full stack
    - Actual Behavior (free-text)
    - Test Case ID (optional)
 9. Preview text updates live as user edits
-10. User clicks [Send] → Jira Bug ticket created in ADT project
+10. User clicks [Send] → Jira Bug ticket created in configured project
 11. Success screen shows ticket key + URL
 ```
 
@@ -68,8 +68,8 @@ Also changing max angle doesn't seem to do anything
 
 ## Error Logs
 [14:32:12] ERROR NullReferenceException: Object reference not set...
-  at Augmentus.Mesh.Fov.FovVisualizer.UpdateRotation() in Assets/Scripts/Mesh/Fov/FovVisualizer.cs:line 142
-  at Augmentus.Controller.Autoscan.AutoscanController.OnAxisChanged() in Assets/Scripts/Controller/Autoscan/AutoscanController.cs:line 87
+  at MyApp.Mesh.Fov.FovVisualizer.UpdateRotation() in Assets/Scripts/Mesh/Fov/FovVisualizer.cs:line 142
+  at MyApp.Controller.Autoscan.AutoscanController.OnAxisChanged() in Assets/Scripts/Controller/Autoscan/AutoscanController.cs:line 87
 
 ## Console Output
 [14:32:05] LOG [Autoscan] Axis changed to Robot
@@ -100,7 +100,7 @@ Unity 6000.0.60f1 | Windows 11 | NVIDIA RTX 4070
 
 ```
 Assets/Scripts/BugReporter/
-├── Augmentus.BugReporter.asmdef
+├── QAReporter.asmdef
 ├── BugReporterManager.cs          ← Orchestrator (singleton, DontDestroyOnLoad)
 ├── BugReporterBootstrapper.cs     ← Auto-init via [RuntimeInitializeOnLoadMethod]
 ├── Core/
@@ -169,7 +169,7 @@ Assets/Scripts/Debug/
 ### Data Flow — Submission
 
 ```
-[Send] → POST /rest/api/3/issue (create Bug ticket in ADT)
+[Send] → POST /rest/api/3/issue (create Bug ticket)
        → POST /rest/api/3/issue/{key}/attachments (per screenshot)
     ↓
 [Complete] → show ticket key + URL
@@ -182,7 +182,7 @@ Assets/Scripts/Debug/
 | Decision | Rationale |
 |----------|-----------|
 | **No Zenject** | Must survive across all scenes. Uses singleton + `DontDestroyOnLoad` like SRDebugger |
-| **Own HTTP client** | Jira uses Basic auth (email:token), different from `AugmentusHttpClient` which uses API key headers for Augmentus cloud |
+| **Own HTTP client** | Jira uses Basic auth (email:token), different from the app's main HTTP client which uses API key headers |
 | **Jira REST API v3 with ADF** | v3 requires Atlassian Document Format JSON. Fallback: use v2 API with wiki markup if ADF proves too complex |
 | **ConcurrentQueue for logs** | `logMessageReceivedThreaded` fires from any thread |
 | **UI Toolkit (not Canvas/uGUI)** | Entire UI built in code — no prefab or UXML needed. Form-heavy UI (text inputs, scrollable preview) is more natural in UI Toolkit. Bug reporter is a dev/QA tool, not customer-facing, so mixing UI systems is fine. PanelSettings sortingOrder=999 for overlay. |
@@ -204,12 +204,12 @@ Our solution: register our own `Application.logMessageReceivedThreaded` handler 
 ## Jira Integration Details
 
 - **Auth:** HTTP Basic (`Authorization: Basic base64(email:token)`)
-- **Cloud instance:** `augmentus.atlassian.net`
-- **Default project:** ADT (Augmentus Dev Team)
+- **Cloud instance:** `yourcompany.atlassian.net`
+- **Default project:** Your Jira project key
 - **Issue type:** Bug
 - **Endpoints:**
-  - Create issue: `POST https://augmentus.atlassian.net/rest/api/3/issue`
-  - Attach file: `POST https://augmentus.atlassian.net/rest/api/3/issue/{key}/attachments` (header: `X-Atlassian-Token: no-check`)
+  - Create issue: `POST https://yourcompany.atlassian.net/rest/api/3/issue`
+  - Attach file: `POST https://yourcompany.atlassian.net/rest/api/3/issue/{key}/attachments` (header: `X-Atlassian-Token: no-check`)
 - **Credentials:** User enters email + API token in settings panel, persisted via `PlayerPrefs`
   - Keys: `BugReporter_JiraEmail`, `BugReporter_JiraApiToken`
 
@@ -232,7 +232,7 @@ Our solution: register our own `Application.logMessageReceivedThreaded` handler 
 ## Build Sequence (Implementation Order)
 
 ### Phase 1: Core Data Models & Log Recorder ✅
-- [x] Create `Assets/Scripts/BugReporter/` directory and `Augmentus.BugReporter.asmdef`
+- [x] Create `Assets/Scripts/BugReporter/` directory and `QAReporter.asmdef`
 - [x] Create `Core/LogEntry.cs`, `Core/SceneTransition.cs`, `Core/ScreenshotData.cs`, `Core/BugReporterState.cs`
 - [x] Create `Core/BugReportData.cs` with `GenerateMarkdownDescription()`
 - [x] Create `Core/LogRecorder.cs` with enhanced stack trace capture
@@ -265,7 +265,7 @@ Our solution: register our own `Application.logMessageReceivedThreaded` handler 
 
 ### Phase 6: SROptions Integration ✅
 - [x] Create `Assets/Scripts/Debug/SROptions.BugReporter.cs`
-- [x] Update `Augmentus.Controller.asmdef` — added BugReporter GUID reference
+- [x] Update controller asmdef — added BugReporter GUID reference
 - [ ] **Test:** Open bug reporter from SRDebugger options panel (requires runtime testing)
 
 ---
@@ -274,7 +274,7 @@ Our solution: register our own `Application.logMessageReceivedThreaded` handler 
 
 | File | Change |
 |------|--------|
-| `Assets/Scripts/Controller/Augmentus.Controller.asmdef` | ✅ Added GUID `4860635e92e250b4c8a419005b2de2d7` to references |
+| Controller `.asmdef` | ✅ Added GUID `4860635e92e250b4c8a419005b2de2d7` to references |
 
 ---
 
@@ -293,9 +293,9 @@ Our solution: register our own `Application.logMessageReceivedThreaded` handler 
 - **SROptions partial classes:** `Assets/Scripts/Debug/SROptions.PathLogic.cs`, `SROptions.AreaSelection.cs` — use `#if !DISABLE_SRDEBUGGER`, `[Category]`, `[DisplayName]`, `FindFirstObjectByType` for scene objects
 - **SRDebugger console service:** `Assets/Libraries/StompyRobot/SRDebugger/Scripts/Services/Implementation/StandardConsoleService.cs` — hooks `Application.logMessageReceivedThreaded`, uses `CircularBuffer<ConsoleEntry>`
 - **SRDebugger screenshot:** `Assets/Libraries/StompyRobot/SRDebugger/Scripts/Internal/BugReportScreenshotUtil.cs` — WaitForEndOfFrame + ReadPixels + EncodeToPNG
-- **HTTP client:** `Assets/Scripts/Cloud/Http/AugmentusHttpClient.cs` — UnityWebRequest wrapper (reference for patterns, not reused directly)
+- **HTTP client:** App's main HTTP client — UnityWebRequest wrapper (reference for patterns, not reused directly)
 - **Scene detection:** `SceneManager.sceneLoaded` / `SceneManager.activeSceneChanged` events
-- **Jira project:** ADT, cloud ID `db530928-f106-4f3a-ab62-5fe836db3250`
+- **Jira project:** Configured via settings panel
 - **Jira fields:** Sprint = `customfield_10020`, Story Points = `customfield_10026`
 
 ---
