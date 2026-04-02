@@ -27,8 +27,9 @@ namespace QAReporter
             {
                 Debug.LogWarning(
                     "[BugReporter] PanelSettings not found at Resources/" + PanelSettingsPath +
-                    ". Run Tools > Bug Reporter > Create Panel Settings Asset in the Editor.");
-                return;
+                    " — creating default PanelSettings at runtime.");
+                panelSettings = ScriptableObject.CreateInstance<PanelSettings>();
+                panelSettings.sortingOrder = 99999;
             }
 
             var go = new GameObject("[BugReporter]");
