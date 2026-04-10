@@ -1,4 +1,4 @@
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || DEVELOPMENT_BUILD || ENABLE_QA_REPORTER
 using System;
 using System.Collections.Generic;
 using System.Threading;
