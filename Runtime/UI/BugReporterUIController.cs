@@ -53,6 +53,7 @@ namespace QAReporter.UI
         private Button _slackButton;
         private Button _addToTicketButton;
         private TextField _existingTicketKeyField;
+        private Label _reviewErrorLabel;
 
         // Complete panel elements.
         private Label _completeMessageLabel;
@@ -385,6 +386,14 @@ namespace QAReporter.UI
 
             panel.Add(scroll);
 
+            // Error label (shown when submission fails and returns to review).
+            _reviewErrorLabel = BugReporterStyles.CreateLabel("",
+                BugReporterStyles.FontSizeSmall, BugReporterStyles.RecordingRed);
+            _reviewErrorLabel.style.whiteSpace = WhiteSpace.Normal;
+            _reviewErrorLabel.style.display = DisplayStyle.None;
+            _reviewErrorLabel.style.marginTop = BugReporterStyles.SmallPadding;
+            panel.Add(_reviewErrorLabel);
+
             // Action buttons.
             var buttonRow = new VisualElement();
             buttonRow.style.flexDirection = FlexDirection.Row;
@@ -488,6 +497,7 @@ namespace QAReporter.UI
             _expectedField.value = report.ExpectedBehavior ?? "";
             _actualField.value = report.ActualBehavior ?? "";
             _testCaseIdField.value = report.TestCaseId ?? "";
+            _reviewErrorLabel.style.display = DisplayStyle.None;
 
             OnReviewFieldChanged();
         }
@@ -780,6 +790,7 @@ namespace QAReporter.UI
                 return;
             }
 
+            _reviewErrorLabel.style.display = DisplayStyle.None;
             var (success, ticketKey, ticketUrl, error) = await manager.SubmitReportAsync();
 
             if (success)
@@ -790,9 +801,7 @@ namespace QAReporter.UI
             }
             else
             {
-                _ticketUrl = null;
-                _completeMessageLabel.text = $"Error: {error}";
-                _completeMessageLabel.style.color = BugReporterStyles.RecordingRed;
+                ShowReviewError(error);
             }
         }
 
@@ -840,6 +849,7 @@ namespace QAReporter.UI
                 return;
             }
 
+            _reviewErrorLabel.style.display = DisplayStyle.None;
             var issueKey = _existingTicketKeyField.value.Trim();
             var (success, ticketUrl, error) = await manager.SubmitAsCommentAsync(issueKey);
 
@@ -851,9 +861,7 @@ namespace QAReporter.UI
             }
             else
             {
-                _ticketUrl = null;
-                _completeMessageLabel.text = $"Error: {error}";
-                _completeMessageLabel.style.color = BugReporterStyles.RecordingRed;
+                ShowReviewError(error);
             }
         }
 
@@ -865,6 +873,7 @@ namespace QAReporter.UI
                 return;
             }
 
+            _reviewErrorLabel.style.display = DisplayStyle.None;
             var (success, error) = await manager.SubmitToSlackAsync();
 
             if (success)
@@ -875,10 +884,14 @@ namespace QAReporter.UI
             }
             else
             {
-                _ticketUrl = null;
-                _completeMessageLabel.text = $"Error: {error}";
-                _completeMessageLabel.style.color = BugReporterStyles.RecordingRed;
+                ShowReviewError(error);
             }
+        }
+
+        private void ShowReviewError(string error)
+        {
+            _reviewErrorLabel.text = $"Error: {error}";
+            _reviewErrorLabel.style.display = DisplayStyle.Flex;
         }
 
         // ─── Helpers ───────────────────────────────────────────

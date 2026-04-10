@@ -295,7 +295,7 @@ namespace QAReporter
                 var (response, createError) = await client.CreateIssueAsync(_currentReport, ct);
                 if (response == null)
                 {
-                    _state.Value = BugReporterState.Error;
+                    _state.Value = BugReporterState.Review;
                     return (false, null, null, $"Failed to create ticket: {createError}");
                 }
 
@@ -339,7 +339,7 @@ namespace QAReporter
             }
             catch (Exception e)
             {
-                _state.Value = BugReporterState.Error;
+                _state.Value = BugReporterState.Review;
                 Debug.LogError($"[BugReporter] Submission error: {e}");
                 return (false, null, null, e.Message);
             }
@@ -398,7 +398,7 @@ namespace QAReporter
                 var commentError = await client.AddCommentAsync(issueKey, commentText, ct);
                 if (commentError != null)
                 {
-                    _state.Value = BugReporterState.Error;
+                    _state.Value = BugReporterState.Review;
                     return (false, null, $"Failed to add comment: {commentError}");
                 }
 
@@ -441,7 +441,7 @@ namespace QAReporter
             }
             catch (Exception e)
             {
-                _state.Value = BugReporterState.Error;
+                _state.Value = BugReporterState.Review;
                 Debug.LogError($"[BugReporter] Comment submission error: {e}");
                 return (false, null, e.Message);
             }
@@ -478,7 +478,7 @@ namespace QAReporter
                 var (msgSuccess, messageTs, msgError) = await client.PostMessageAsync(slackText, ct);
                 if (!msgSuccess)
                 {
-                    _state.Value = BugReporterState.Error;
+                    _state.Value = BugReporterState.Review;
                     return (false, $"Failed to post message: {msgError}");
                 }
 
@@ -521,7 +521,7 @@ namespace QAReporter
             }
             catch (Exception e)
             {
-                _state.Value = BugReporterState.Error;
+                _state.Value = BugReporterState.Review;
                 Debug.LogError($"[BugReporter] Slack submission error: {e}");
                 return (false, e.Message);
             }
