@@ -3,6 +3,7 @@ using System;
 using QAReporter.AI;
 using QAReporter.Core;
 using QAReporter.Jira;
+using QAReporter.Slack;
 using Cysharp.Threading.Tasks;
 using UniRx;
 using UnityEngine;
@@ -49,6 +50,7 @@ namespace QAReporter.UI
         private Label _previewLabel;
         private ScrollView _previewScroll;
         private Button _sendButton;
+        private Button _slackButton;
         private Button _addToTicketButton;
         private TextField _existingTicketKeyField;
 
@@ -56,7 +58,7 @@ namespace QAReporter.UI
         private Label _completeMessageLabel;
         private string _ticketUrl;
 
-        // Settings panel elements.
+        // Settings panel elements — Jira.
         private TextField _emailField;
         private TextField _apiTokenField;
         private TextField _cloudInstanceField;
@@ -64,6 +66,11 @@ namespace QAReporter.UI
         private TextField _issueTypeField;
         private TextField _anthropicApiKeyField;
         private Label _settingsStatusLabel;
+
+        // Settings panel elements — Slack.
+        private TextField _slackBotTokenField;
+        private TextField _slackChannelIdField;
+        private Label _slackSettingsStatusLabel;
 
         private void Start()
         {
@@ -398,6 +405,16 @@ namespace QAReporter.UI
             };
             buttonRow.Add(_sendButton);
 
+            _slackButton = BugReporterStyles.CreateButton("Send to Slack", BugReporterStyles.SlackPurple);
+            _slackButton.style.marginLeft = BugReporterStyles.SmallPadding;
+            _slackButton.SetEnabled(false);
+            _slackButton.clicked += () =>
+            {
+                _sendingLabel.text = "Sending to Slack...";
+                SubmitToSlackAsync().Forget();
+            };
+            buttonRow.Add(_slackButton);
+
             panel.Add(buttonRow);
 
             // Add to existing ticket section.
@@ -437,7 +454,10 @@ namespace QAReporter.UI
             report.TestCaseId = _testCaseIdField.value;
 
             _previewLabel.text = report.GenerateMarkdownDescription();
-            _sendButton.SetEnabled(!string.IsNullOrWhiteSpace(_titleField.value));
+
+            bool hasTitle = !string.IsNullOrWhiteSpace(_titleField.value);
+            _sendButton.SetEnabled(hasTitle);
+            _slackButton.SetEnabled(hasTitle);
         }
 
         private void PopulateReviewPanel()
@@ -525,48 +545,89 @@ namespace QAReporter.UI
         {
             var panel = CreatePanelContainer();
 
-            panel.Add(BugReporterStyles.CreateLabel("Jira Settings",
+            var scroll = new ScrollView(ScrollViewMode.Vertical);
+            scroll.style.flexGrow = 1;
+
+            scroll.Add(BugReporterStyles.CreateLabel("Jira Settings",
                 BugReporterStyles.FontSizeHeader));
-            panel.Add(BugReporterStyles.CreateSeparator());
+            scroll.Add(BugReporterStyles.CreateSeparator());
 
             _emailField = BugReporterStyles.CreateTextField("Jira Email");
-            panel.Add(_emailField);
+            scroll.Add(_emailField);
 
             _apiTokenField = BugReporterStyles.CreateTextField("API Token");
             _apiTokenField.isPasswordField = true;
-            panel.Add(_apiTokenField);
+            scroll.Add(_apiTokenField);
 
             _cloudInstanceField = BugReporterStyles.CreateTextField("Cloud Instance");
-            panel.Add(_cloudInstanceField);
+            scroll.Add(_cloudInstanceField);
 
             _projectKeyField = BugReporterStyles.CreateTextField("Project Key");
-            panel.Add(_projectKeyField);
+            scroll.Add(_projectKeyField);
 
             _issueTypeField = BugReporterStyles.CreateTextField("Issue Type");
-            panel.Add(_issueTypeField);
-
-            panel.Add(BugReporterStyles.CreateSeparator());
-
-            _anthropicApiKeyField = BugReporterStyles.CreateTextField("Anthropic API Key");
-            _anthropicApiKeyField.isPasswordField = true;
-            panel.Add(_anthropicApiKeyField);
+            scroll.Add(_issueTypeField);
 
             _settingsStatusLabel = BugReporterStyles.CreateLabel("",
                 BugReporterStyles.FontSizeSmall, BugReporterStyles.TextSecondary);
             _settingsStatusLabel.style.marginTop = BugReporterStyles.SmallPadding;
-            panel.Add(_settingsStatusLabel);
+            scroll.Add(_settingsStatusLabel);
 
+            var jiraButtonRow = new VisualElement();
+            jiraButtonRow.style.flexDirection = FlexDirection.Row;
+            jiraButtonRow.style.marginTop = BugReporterStyles.SmallPadding;
+
+            var testBtn = BugReporterStyles.CreateButton("Test Jira", BugReporterStyles.ButtonNormal);
+            testBtn.clicked += () => TestConnectionAsync(testBtn).Forget();
+            jiraButtonRow.Add(testBtn);
+            scroll.Add(jiraButtonRow);
+
+            // Slack settings section.
+            scroll.Add(BugReporterStyles.CreateSeparator());
+            scroll.Add(BugReporterStyles.CreateLabel("Slack Settings",
+                BugReporterStyles.FontSizeHeader));
+            scroll.Add(BugReporterStyles.CreateSeparator());
+
+            _slackBotTokenField = BugReporterStyles.CreateTextField("Bot Token");
+            _slackBotTokenField.isPasswordField = true;
+            scroll.Add(_slackBotTokenField);
+
+            _slackChannelIdField = BugReporterStyles.CreateTextField("Channel ID");
+            scroll.Add(_slackChannelIdField);
+
+            _slackSettingsStatusLabel = BugReporterStyles.CreateLabel("",
+                BugReporterStyles.FontSizeSmall, BugReporterStyles.TextSecondary);
+            _slackSettingsStatusLabel.style.marginTop = BugReporterStyles.SmallPadding;
+            scroll.Add(_slackSettingsStatusLabel);
+
+            var slackButtonRow = new VisualElement();
+            slackButtonRow.style.flexDirection = FlexDirection.Row;
+            slackButtonRow.style.marginTop = BugReporterStyles.SmallPadding;
+
+            var testSlackBtn = BugReporterStyles.CreateButton("Test Slack", BugReporterStyles.SlackPurple);
+            testSlackBtn.clicked += () => TestSlackConnectionAsync(testSlackBtn).Forget();
+            slackButtonRow.Add(testSlackBtn);
+            scroll.Add(slackButtonRow);
+
+            // AI settings section.
+            scroll.Add(BugReporterStyles.CreateSeparator());
+            scroll.Add(BugReporterStyles.CreateLabel("AI Settings",
+                BugReporterStyles.FontSizeHeader));
+            scroll.Add(BugReporterStyles.CreateSeparator());
+
+            _anthropicApiKeyField = BugReporterStyles.CreateTextField("Anthropic API Key");
+            _anthropicApiKeyField.isPasswordField = true;
+            scroll.Add(_anthropicApiKeyField);
+
+            panel.Add(scroll);
+
+            // Bottom action buttons.
             var buttonRow = new VisualElement();
             buttonRow.style.flexDirection = FlexDirection.Row;
             buttonRow.style.justifyContent = Justify.FlexEnd;
             buttonRow.style.marginTop = BugReporterStyles.Padding;
 
-            var testBtn = BugReporterStyles.CreateButton("Test Connection", BugReporterStyles.ButtonNormal);
-            testBtn.clicked += () => TestConnectionAsync(testBtn).Forget();
-            buttonRow.Add(testBtn);
-
             var saveBtn = BugReporterStyles.CreateButton("Save", BugReporterStyles.ButtonPrimary);
-            saveBtn.style.marginLeft = BugReporterStyles.SmallPadding;
             saveBtn.clicked += SaveSettings;
             buttonRow.Add(saveBtn);
 
@@ -581,14 +642,20 @@ namespace QAReporter.UI
 
         private void ShowSettingsPanel()
         {
-            var settings = JiraSettings.Load();
-            _emailField.value = settings.Email;
-            _apiTokenField.value = settings.ApiToken;
-            _cloudInstanceField.value = settings.CloudInstance;
-            _projectKeyField.value = settings.ProjectKey;
-            _issueTypeField.value = settings.IssueType;
-            _anthropicApiKeyField.value = settings.AnthropicApiKey;
+            var jiraSettings = JiraSettings.Load();
+            _emailField.value = jiraSettings.Email;
+            _apiTokenField.value = jiraSettings.ApiToken;
+            _cloudInstanceField.value = jiraSettings.CloudInstance;
+            _projectKeyField.value = jiraSettings.ProjectKey;
+            _issueTypeField.value = jiraSettings.IssueType;
+            _anthropicApiKeyField.value = jiraSettings.AnthropicApiKey;
             _settingsStatusLabel.text = "";
+
+            var slackSettings = SlackSettings.Load();
+            _slackBotTokenField.value = slackSettings.BotToken;
+            _slackChannelIdField.value = slackSettings.ChannelId;
+            _slackSettingsStatusLabel.text = "";
+
             _settingsPanel.style.display = DisplayStyle.Flex;
         }
 
@@ -600,7 +667,7 @@ namespace QAReporter.UI
 
         private void SaveSettings()
         {
-            var settings = new JiraSettings
+            var jiraSettings = new JiraSettings
             {
                 Email = _emailField.value.Trim(),
                 ApiToken = _apiTokenField.value.Trim(),
@@ -609,14 +676,22 @@ namespace QAReporter.UI
                 IssueType = _issueTypeField.value.Trim(),
                 AnthropicApiKey = _anthropicApiKeyField.value.Trim()
             };
-            settings.Save();
+            jiraSettings.Save();
+
+            var slackSettings = new SlackSettings
+            {
+                BotToken = _slackBotTokenField.value.Trim(),
+                ChannelId = _slackChannelIdField.value.Trim()
+            };
+            slackSettings.Save();
+
             _settingsStatusLabel.text = "Saved.";
             HideSettingsPanel();
         }
 
         private async UniTaskVoid TestConnectionAsync(Button testBtn)
         {
-            _settingsStatusLabel.text = "Testing...";
+            _settingsStatusLabel.text = "Testing Jira...";
             testBtn.SetEnabled(false);
 
             var settings = new JiraSettings
@@ -633,8 +708,29 @@ namespace QAReporter.UI
             var (success, error) = await client.TestConnectionAsync();
 
             testBtn.SetEnabled(true);
-            _settingsStatusLabel.text = success ? "Connection successful!" : $"Failed: {error}";
+            _settingsStatusLabel.text = success ? "Jira connected!" : $"Failed: {error}";
             _settingsStatusLabel.style.color = success
+                ? BugReporterStyles.SuccessGreen
+                : BugReporterStyles.RecordingRed;
+        }
+
+        private async UniTaskVoid TestSlackConnectionAsync(Button testBtn)
+        {
+            _slackSettingsStatusLabel.text = "Testing Slack...";
+            testBtn.SetEnabled(false);
+
+            var settings = new SlackSettings
+            {
+                BotToken = _slackBotTokenField.value.Trim(),
+                ChannelId = _slackChannelIdField.value.Trim()
+            };
+
+            var client = new SlackApiClient(settings);
+            var (success, error) = await client.TestConnectionAsync();
+
+            testBtn.SetEnabled(true);
+            _slackSettingsStatusLabel.text = success ? "Slack connected!" : $"Failed: {error}";
+            _slackSettingsStatusLabel.style.color = success
                 ? BugReporterStyles.SuccessGreen
                 : BugReporterStyles.RecordingRed;
         }
@@ -751,6 +847,30 @@ namespace QAReporter.UI
             {
                 _ticketUrl = ticketUrl;
                 _completeMessageLabel.text = $"Comment added to {issueKey}!";
+                _completeMessageLabel.style.color = BugReporterStyles.SuccessGreen;
+            }
+            else
+            {
+                _ticketUrl = null;
+                _completeMessageLabel.text = $"Error: {error}";
+                _completeMessageLabel.style.color = BugReporterStyles.RecordingRed;
+            }
+        }
+
+        private async UniTaskVoid SubmitToSlackAsync()
+        {
+            var manager = BugReporterManager.Instance;
+            if (manager == null)
+            {
+                return;
+            }
+
+            var (success, error) = await manager.SubmitToSlackAsync();
+
+            if (success)
+            {
+                _ticketUrl = null;
+                _completeMessageLabel.text = "Bug report sent to Slack!";
                 _completeMessageLabel.style.color = BugReporterStyles.SuccessGreen;
             }
             else

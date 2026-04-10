@@ -5,6 +5,7 @@ using System.Threading;
 using QAReporter.Core;
 using QAReporter.Jira;
 using QAReporter.Screenshot;
+using QAReporter.Slack;
 using Cysharp.Threading.Tasks;
 using UniRx;
 using UnityEngine;
@@ -443,6 +444,86 @@ namespace QAReporter
                 _state.Value = BugReporterState.Error;
                 Debug.LogError($"[BugReporter] Comment submission error: {e}");
                 return (false, null, e.Message);
+            }
+        }
+
+        /// <summary>
+        /// Submits the bug report to Slack.
+        /// </summary>
+        /// <returns>Tuple of (success, error).</returns>
+        public async UniTask<(bool success, string error)> SubmitToSlackAsync()
+        {
+            if (_state.Value != BugReporterState.Review)
+            {
+                return (false, "Not in Review state.");
+            }
+
+            var settings = SlackSettings.Load();
+            if (!settings.IsConfigured)
+            {
+                return (false, "Slack credentials not configured. Open Settings first.");
+            }
+
+            _state.Value = BugReporterState.Sending;
+            _sendCts?.Cancel();
+            _sendCts = new CancellationTokenSource();
+            var ct = _sendCts.Token;
+
+            try
+            {
+                var client = new SlackApiClient(settings);
+
+                // Post the main message.
+                var slackText = _currentReport.GenerateSlackDescription();
+                var (msgSuccess, messageTs, msgError) = await client.PostMessageAsync(slackText, ct);
+                if (!msgSuccess)
+                {
+                    _state.Value = BugReporterState.Error;
+                    return (false, $"Failed to post message: {msgError}");
+                }
+
+                Debug.Log($"[BugReporter] Slack message posted (ts={messageTs}).");
+
+                // Upload console log as a threaded file.
+                var consoleLogText = _currentReport.GenerateConsoleLogText();
+                var consoleLogBytes = System.Text.Encoding.UTF8.GetBytes(consoleLogText);
+                var logFileName = $"console_log_{_currentReport.StartTime:yyyy-MM-dd_HH-mm-ss}.txt";
+                var logError = await client.UploadFileAsync(
+                    consoleLogBytes, logFileName, messageTs, ct);
+
+                if (logError != null)
+                {
+                    Debug.LogWarning($"[BugReporter] Failed to upload console log to Slack: {logError}");
+                }
+
+                // Upload screenshots as threaded files.
+                for (int i = 0; i < _currentReport.Screenshots.Count; i++)
+                {
+                    var screenshot = _currentReport.Screenshots[i];
+                    var scrError = await client.UploadFileAsync(
+                        screenshot.PngData, screenshot.FileName, messageTs, ct);
+
+                    if (scrError != null)
+                    {
+                        Debug.LogWarning(
+                            $"[BugReporter] Failed to upload screenshot {i + 1} to Slack: {scrError}");
+                    }
+                }
+
+                _state.Value = BugReporterState.Complete;
+                Debug.Log("[BugReporter] Bug report sent to Slack.");
+                return (true, null);
+            }
+            catch (OperationCanceledException)
+            {
+                _state.Value = BugReporterState.Review;
+                return (false, "Submission cancelled.");
+            }
+            catch (Exception e)
+            {
+                _state.Value = BugReporterState.Error;
+                Debug.LogError($"[BugReporter] Slack submission error: {e}");
+                return (false, e.Message);
             }
         }
 

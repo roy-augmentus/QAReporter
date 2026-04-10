@@ -17,6 +17,7 @@ namespace QAReporter.UI
         public static readonly Color ButtonDanger = new Color(0.8f, 0.2f, 0.2f, 1f);
         public static readonly Color RecordingRed = new Color(0.9f, 0.2f, 0.2f, 1f);
         public static readonly Color SuccessGreen = new Color(0.2f, 0.7f, 0.3f, 1f);
+        public static readonly Color SlackPurple = new Color(0.44f, 0.15f, 0.54f, 1f);
         public static readonly Color TextPrimary = new Color(0.9f, 0.9f, 0.9f, 1f);
         public static readonly Color TextSecondary = new Color(0.6f, 0.6f, 0.6f, 1f);
         public static readonly Color InputBackground = new Color(0.12f, 0.12f, 0.12f, 1f);

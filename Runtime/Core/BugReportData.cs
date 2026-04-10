@@ -253,6 +253,118 @@ namespace QAReporter.Core
             sb.AppendLine("h2. System");
             sb.AppendLine($"Unity {Application.unityVersion} | {SystemInfo.operatingSystem} | {SystemInfo.graphicsDeviceName}");
         }
+
+        /// <summary>
+        /// Generates a Slack mrkdwn formatted description for the bug report.
+        /// </summary>
+        public string GenerateSlackDescription()
+        {
+            var sb = new StringBuilder();
+
+            sb.AppendLine($":bug: *{Title}*");
+            sb.AppendLine();
+
+            // Steps to Reproduce
+            sb.AppendLine("*Steps to Reproduce*");
+            sb.AppendLine($"_Scene:_ {StartSceneName}");
+            sb.AppendLine($"_Recording:_ {StartTime:yyyy-MM-dd HH:mm:ss} → {EndTime:HH:mm:ss} ({Duration.TotalSeconds:F0}s)");
+
+            if (SceneTransitions.Count > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine("_Scene transitions:_");
+                foreach (var transition in SceneTransitions)
+                {
+                    sb.AppendLine($"  • `[{transition.Timestamp:HH:mm:ss}]` {transition.FromScene} → {transition.ToScene}");
+                }
+            }
+
+            if (UIInteractions.Count > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine("_UI interactions:_");
+                foreach (var interaction in UIInteractions)
+                {
+                    sb.AppendLine($"  • `[{interaction.Timestamp:HH:mm:ss}]` {interaction.Description}");
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(StepsToReproduce))
+            {
+                sb.AppendLine();
+                sb.AppendLine(StepsToReproduce.Trim());
+            }
+
+            sb.AppendLine();
+
+            // Expected Behavior
+            sb.AppendLine("*Expected Behavior*");
+            sb.AppendLine(!string.IsNullOrWhiteSpace(ExpectedBehavior)
+                ? ExpectedBehavior.Trim()
+                : "_(not provided)_");
+            sb.AppendLine();
+
+            // Actual Behavior
+            sb.AppendLine("*Actual Behavior*");
+            sb.AppendLine(!string.IsNullOrWhiteSpace(ActualBehavior)
+                ? ActualBehavior.Trim()
+                : "_(not provided)_");
+            sb.AppendLine();
+
+            // Error Logs (inline, truncated)
+            var errors = Logs.Where(l => l.IsError).ToList();
+            if (errors.Count > 0)
+            {
+                sb.AppendLine("*Error Logs*");
+                sb.AppendLine("```");
+                foreach (var error in errors)
+                {
+                    sb.AppendLine($"[{error.Timestamp:HH:mm:ss}] {error.Type.ToString().ToUpper()} {error.Message}");
+
+                    var trace = error.BestStackTrace;
+                    if (!string.IsNullOrWhiteSpace(trace))
+                    {
+                        var lines = trace.Split('\n');
+                        // Limit stack trace lines to keep message concise.
+                        for (int i = 0; i < Math.Min(lines.Length, 5); i++)
+                        {
+                            var trimmed = lines[i].TrimEnd('\r');
+                            if (!string.IsNullOrWhiteSpace(trimmed))
+                            {
+                                sb.AppendLine($"  {trimmed}");
+                            }
+                        }
+                        if (lines.Length > 5)
+                        {
+                            sb.AppendLine($"  ... ({lines.Length - 5} more lines in attached log)");
+                        }
+                    }
+                }
+                sb.AppendLine("```");
+                sb.AppendLine();
+            }
+
+            // Test Case
+            if (!string.IsNullOrWhiteSpace(TestCaseId))
+            {
+                sb.AppendLine($"*Test Case:* {TestCaseId.Trim()}");
+                sb.AppendLine();
+            }
+
+            // System Info
+            sb.AppendLine($"_Unity {Application.unityVersion} | {SystemInfo.operatingSystem} | {SystemInfo.graphicsDeviceName}_");
+
+            // Attachment summary
+            var attachments = new System.Collections.Generic.List<string>();
+            attachments.Add("console log");
+            if (Screenshots.Count > 0)
+            {
+                attachments.Add($"{Screenshots.Count} screenshot{(Screenshots.Count > 1 ? "s" : "")}");
+            }
+            sb.AppendLine($"_Attachments: {string.Join(", ", attachments)} (in thread)_");
+
+            return sb.ToString();
+        }
     }
 }
 #endif
